@@ -242,6 +242,44 @@ define your own startup event.
 So you have a number of choices available to you when initializing your
 state machine.
 
+
+-- Dynamic dst state and per event+state event callbacks
+
+Example:
+
+import random
+
+def is_lamp_ok(e):
+  # pick randomly, flip a coin and return one of the states
+  # this function must return string with name of the dst state
+  return e.dst[random.randint(0, len(e.dst)-1)]
+
+
+def lamp_callback(e):
+  print "This callback happens on switch event but only from on to off state."
+
+def onchangestate(e):
+  print "Changing from", e.src, "to", e.dst
+
+def onswitch(e):
+  print "Catch all switch events. State from ", e.src, "to", e.dst
+
+d= {
+  "initial": "off",
+  "events": [
+    {"name": "switch", "src": "off", "dst": ["on", "broken"], "decision": is_lamp_ok},
+    {"name": "switch", "src": "on", "dst": "off", "callback": lamp_callback},
+    {"name": "breakit", "src": ["on", "off"], "dst": "broken"},
+    {"name": "fixit", "src": "broken", "dst": "off"},
+    {"name": "switch", "src": "broken", "dst": "broken"},
+  ],
+  "callbacks":
+  {
+    "onchangestate": onchangestate,
+    "onswitch": onswitch,
+  }
+}
+
 """
 
 __author__ = 'Mansour'
