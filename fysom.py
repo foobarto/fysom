@@ -286,13 +286,19 @@ class Fysom(object):
     callbacks = cfg['callbacks'] if 'callbacks' in cfg else {}
     tmap = {}
     self._map = tmap
+    self._dmap = {}
+    self._cmap = {}
 
     def add(e):
       src = [e['src']] if isinstance(e['src'], basestring) else e['src']
       if e['name'] not in tmap:
         tmap[e['name']] = {}
+        self._dmap[e['name']] = {}
+        self._cmap[e['name']] = {}
       for s in src:
         tmap[e['name']][s] = e['dst']
+        self._dmap[e['name']][s] = e.get('decision')
+        self._cmap[e['name']][s] = e.get('callback')
 
     if init:
       if 'event' not in init:
@@ -325,29 +331,38 @@ class Fysom(object):
                          " %s" % (event, self.current))
 
       src = self.current
+      decision = self._dmap[event][src]
       dst = self._map[event][src]
+      callback = self._cmap[event][src]
 
       class _e_obj(object):
         pass
       e = _e_obj()
       e.fsm, e.event, e.src, e.dst = self, event, src, dst
+      
       for k in kwargs:
         setattr(e, k, kwargs[k])
 
-      if self.current != dst:
-        if self._before_event(e) == False:
-          return
+      if self._before_event(e) == False:
+        return
+      if callable(decision) and isinstance(dst, list):
+        e.dst = decision(e)
+
+      if self.current != e.dst:
         def _tran():
           delattr(self, 'transition')
-          self.current = dst
+          self.current = e.dst
           self._enter_state(e)
           self._change_state(e)
-          self._after_event(e)
         self.transition = _tran
 
       if self._leave_state(e) != False:
         if hasattr(self, 'transition'):
           self.transition()
+      if callable(callback):
+        callback(e)
+      else:
+        self._after_event(e)
       
     return fn
 
